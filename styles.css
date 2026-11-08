@@ -139,7 +139,7 @@ html:not([data-pwa-display="standalone"]) #appShell{display:none!important}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
 
 
-/* BASE 1.9.0 — INTERFACE NEON PREMIUM RECONSTRUÍDA */
+/* NATIVA FM 1.9.0 — INTERFACE NEON PREMIUM RECONSTRUÍDA */
 .app-shell{
  background:radial-gradient(ellipse 120% 58% at 50% 45%,rgba(0,111,25,.30),transparent 75%),
  linear-gradient(180deg,#010a05 0%,#021007 50%,#010804 100%);
@@ -211,43 +211,7 @@ html:not([data-pwa-display="standalone"]) #appShell{display:none!important}
 }
 @media(max-height:530px){.neon-background{top:-7%;height:105%;}}
 
-/* RÁDIO CAPARAÓ GOSPEL — Identidade vermelha/branca, mantendo o layout original. */
-:root { --night:#100408; --panel:#250a0f; --panel2:#220910; --green:#ff7581; --line:rgba(255,111,124,.55); --soft:#ffebef; }
-html,body{background:#100408;color:#fff8f9}
-body{background:radial-gradient(ellipse 90% 58% at 49% 42%,rgba(156,16,34,.17),transparent 65%),#100408}
-.install-landing{background:radial-gradient(circle at 50% 33%,rgba(183,29,40,.29),transparent 43%),#140407}
-.landing-live-dot{background:#ff5963;box-shadow:0 0 12px #ff6479}
-.landing-header__frequency{color:#e6b3b7}
-.landing-logo-glow:before{background:#ff3645;opacity:.36}
-.landing-eyebrow,.landing-title span,.landing-slogan strong,.landing-footer span{color:#ff8790}
-.landing-primary{color:white;background:linear-gradient(105deg,#e53340,#b71824,#8d1019);border-color:#fa7b85;box-shadow:0 12px 40px #b518344b}
-.landing-primary:disabled{background:#54232b;color:#f4d8dc}
-.landing-hint,.landing-copy,.landing-footer{color:#f1c6cd}
-.landing-footer{border-top-color:#7a283b66}
-.app-shell{background:radial-gradient(ellipse 120% 58% at 50% 45%,rgba(153,11,30,.30),transparent 75%),linear-gradient(180deg,#110306 0%,#1b0409 50%,#100307 100%)}
-.topbar{border-color:rgba(255,94,110,.70);background:linear-gradient(95deg,#40090f 0%,#21060b 63%,#180409 100%);box-shadow:inset 0 1px 1px rgba(255,187,192,.27),0 0 16px rgba(240,42,66,.25)}
-.topbar__brand{flex:1 1 auto}
-.brand-mark{border:1.5px solid #ffafb7;box-shadow:0 0 9px #ff8799a8,0 0 22px #fb445369}
-.brand-divider{background:linear-gradient(transparent,#ff8591,#ff5e6f,transparent)}
+/* Rádio Caparaó Gospel: ajuste tipográfico apenas, sem alterar as cores verdes originais. */
 .brand-wordmark strong{font-size:clamp(12px,2.05dvh,20px);letter-spacing:0;white-space:normal;line-height:1.07}
-.brand-wordmark small{color:#ffd4db;letter-spacing:1.1px}
-.on-air-badge{background:#300910;border-color:#c54f60}
-.on-air-badge.is-on{border-color:#ff828b;box-shadow:0 0 9px #ff5362a0,inset 0 0 8px #ea354730}
-.visual-atmosphere{background:radial-gradient(ellipse 28% 30% at 3% 33%,rgba(229,20,46,.35),transparent 92%),radial-gradient(ellipse 35% 26% at 97% 66%,rgba(228,24,50,.32),transparent 92%),radial-gradient(ellipse 57% 58% at 50% 47%,rgba(109,0,17,.43),transparent 98%)}
-.neon-background{filter:hue-rotate(240deg) saturate(1.25) drop-shadow(0 0 8px rgba(255,54,76,.35))}
-.logo-orbit{background:#bf1d29;border-color:#ff9da7;box-shadow:0 0 0 3px #63121ccc,0 0 10px #ffd7db,0 0 20px #fa4c64bd,0 0 48px #f0113869,inset 0 0 11px #ffe9eb}
-.logo-orbit:before{border-color:#ffc0c8;box-shadow:0 0 11px #ff7886a3}
-.frequency{font-size:clamp(22px,4.4dvh,41px);letter-spacing:-1px}
-.frequency span{color:#ff8b98;text-shadow:0 0 13px #ff536baa}
-.frequency-decoration i{background:#fb405a;box-shadow:0 0 6px #ff6478,0 0 14px #fb2b5780}
-.hero h1{color:#ffeff2}
-.now-card{border-color:#f35b72;background:linear-gradient(120deg,rgba(68,10,22,.83),rgba(27,5,14,.97));box-shadow:0 0 10px #e32e4947,inset 0 0 15px #f03a4e14}
-.music-icon{border-color:#f77d8d85;background:radial-gradient(circle at 14% 5%,#fe8e9a,#ce263a 61%,#6a0c1b);box-shadow:inset 0 0 20px #ffffff22,0 0 11px #ed394e45}
-.now-divider{background:linear-gradient(transparent,#ff6a7e,transparent)}
-.now-label{color:#ff9dab}
-.now-artist{color:#f0c4cd}
-.now-wave i{background:#ff6275;box-shadow:0 0 6px #fb405d}
-.contact-action{border-color:#e95067;background:linear-gradient(130deg,#50101e,#360a15 85%);box-shadow:inset 0 0 12px #e82c4712,0 0 11px #d92d4b52}
-.contact-action:hover{background:#711b2a}
 @media(max-height:685px){.brand-wordmark strong{font-size:12px}}
 @media(max-width:345px){.brand-wordmark strong{font-size:11px}}

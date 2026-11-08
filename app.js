@@ -171,7 +171,7 @@
   const BUFFER_TIMEOUT = 28000;
   const STABLE_PLAYBACK = 20000;
   const RETRY_DELAYS = [2, 4, 7, 12, 20, 30, 45, 60];
-  const streamUrl = cfg.streamUrl;
+  const streamUrl = cfg.streamUrl; // /; conforme listen.pls
   // Streaming HTTP direto só é permitido em páginas HTTP/localhost.
   // Em HTTPS use preferencialmente o proxy de mesma origem (/api/stream)
   // ou a URL HTTPS autenticada pela hospedagem da rádio.
@@ -435,7 +435,7 @@
 
   function maybeFallback(reason, hadPlayback) {
     if (!state.desired) return;
-    if (state.currentProxy && !state.proxyFailed) {
+    if (state.currentProxy && !state.proxyFailed && !insecureStreamOnHttps) {
       state.proxyFailed = true;
       setConnectionInfo(`Servidor auxiliar indisponível. Tentando conexão direta com a rádio.`);
       connectStream();
@@ -452,7 +452,7 @@
 
   function connectStream() {
     if (!state.desired) return;
-    if (!state.proxy && insecureStreamOnHttps) {
+    if ((!state.proxy || state.proxyFailed) && insecureStreamOnHttps) {
       setStatus('error', 'O streaming HTTP precisa de um proxy HTTPS para funcionar neste site.');
       setConnectionInfo('Hospede server.js por HTTPS ou configure secureStreamUrl no config.js.');
       resetMeters('Aguardando endereço de streaming seguro.');
@@ -743,7 +743,7 @@
   });
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=1.9.1-caparao.1').catch((error) => console.warn('Service Worker:', error)));
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=1.9.1-caparao.2').catch((error) => console.warn('Service Worker:', error)));
   }
 
   // Inicialização automática SOMENTE na PWA instalada. Na página pública

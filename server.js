@@ -9,11 +9,12 @@ const http = require('node:http');
 const {createReadStream, stat} = require('node:fs');
 const path = require('node:path');
 const {Readable} = require('node:stream');
+const net = require('node:net');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
-const STREAM = process.env.RADIO_STREAM_URL || 'http://stm17.xcast.com.br:8318';
+const STREAM = process.env.RADIO_STREAM_URL || 'http://stm17.xcast.com.br:8318/;';
 const UPSTREAM = new URL(STREAM);
 const STATIC = new Set([
   '/index.html', '/styles.css', '/gate.js', '/landing.js', '/app.js', '/config.js', '/sw.js', '/manifest.webmanifest',
@@ -56,30 +57,104 @@ function sendFile(req, res, pathname) {
     createReadStream(file).on('error', () => res.destroy()).pipe(res);
   });
 }
+
+/**
+ * Compatibilidade xCAST/SHOUTcast: a playlist .pls usa /; (não apenas /).
+ * Uma origem SHOUTcast antiga também pode responder "ICY 200 OK", que
+ * alguns clientes HTTP modernos recusam. Tentamos fetch HTTP primeiro;
+ * nesse caso específico, usamos um socket com leitura de cabeçalho ICY.
+ */
+function streamViaIcySocket(res, target) {
+  return new Promise((resolve, reject) => {
+    if (target.protocol !== 'http:') return reject(new Error('Fallback ICY exige HTTP do servidor xCAST.'));
+    const sock = net.createConnection({host:target.hostname, port:Number(target.port || 80)});
+    let finished = false;
+    let head = Buffer.alloc(0);
+    let ready = false;
+    function abort() { sock.destroy(); }
+    function fail(err) {
+      if (finished) return;
+      finished = true;
+      sock.destroy();
+      if (!res.headersSent) reject(err);
+      else { if (!res.destroyed) res.destroy(); resolve(); }
+    }
+    res.once('close', abort);
+    sock.setTimeout(35000, () => fail(new Error('Timeout do streaming ICY.')));
+    sock.on('connect', () => {
+      const path = target.pathname + target.search;
+      sock.write(`GET ${path} HTTP/1.0\r\nHost: ${target.host}\r\nUser-Agent: CaparaoGospelPlayer/1.9.1\r\nAccept: audio/mpeg, audio/aac, */*\r\nIcy-MetaData: 0\r\nConnection: close\r\n\r\n`);
+    });
+    sock.on('data', (chunk) => {
+      if (finished || res.destroyed) return;
+      if (!ready) {
+        head = Buffer.concat([head, chunk]);
+        if (head.length > 32768) return fail(new Error('Cabeçalho ICY excedeu o limite.'));
+        const pos = head.indexOf('\r\n\r\n');
+        if (pos < 0) return;
+        const header = head.subarray(0, pos).toString('latin1');
+        const status = header.split('\r\n',1)[0];
+        const ok = /^(?:ICY|HTTP\/1\.[01]) 200(?: |$)/.test(status);
+        if (!ok) return fail(new Error(`Status inválido da origem: ${status.slice(0,90)}`));
+        const type = /(?:^|\r\n)content-type:\s*([^\r\n]+)/i.exec(header)?.[1]?.trim() || 'audio/mpeg';
+        if (!/^(?:audio\/|application\/octet-stream)/i.test(type))
+          return fail(new Error(`SHOUTcast enviou conteúdo não-audio: ${type}`));
+        ready = true;
+        sock.setTimeout(90000, () => fail(new Error('Sem novos dados do streaming ICY.')));
+        res.writeHead(200, {'Content-Type':type,'Cache-Control':'no-store, no-transform',
+          'X-Accel-Buffering':'no','Access-Control-Allow-Origin':'*'});
+        const tail = head.subarray(pos + 4);
+        head = Buffer.alloc(0);
+        if (tail.length && !res.write(tail)) sock.pause();
+      } else if (!res.write(chunk)) sock.pause();
+    });
+    res.on('drain', () => sock.resume());
+    sock.on('error', (err) => fail(err));
+    sock.on('end', () => {
+      if (finished) return;
+      finished = true;
+      if (ready) { if (!res.writableEnded) res.end(); resolve(); }
+      else reject(new Error('A origem encerrou a conexão antes de enviar áudio ICY.'));
+    });
+    sock.on('close', () => { if (!finished) fail(new Error('Conexão ICY encerrada inesperadamente.')); });
+  });
+}
 async function proxyAudio(res) {
   const controller = new AbortController();
-  let completed = false;
-  res.on('close', () => { if (!completed) controller.abort(); });
+  res.on('close', () => controller.abort());
   try {
     const upstream = await fetch(STREAM, {
       redirect:'follow', signal:controller.signal,
-      headers:{'Accept':'audio/mpeg, audio/aac, */*','Icy-MetaData':'0'}
+      headers:{'Accept':'audio/mpeg, audio/aac, */*','Icy-MetaData':'0'},
+      // Stream ao vivo: o timeout deve ser aplicado só ao início, não ao áudio contínuo.
     });
     if (!upstream.ok || !upstream.body) throw new Error(`Status remoto ${upstream.status}`);
+    const type = upstream.headers.get('content-type') || 'audio/mpeg';
+    if (!/^(?:audio\/|application\/octet-stream)/i.test(type)) {
+      await upstream.body.cancel().catch(() => {});
+      throw new Error(`Origem retornou ${type} em vez de áudio (confira URL /;).`);
+    }
     res.writeHead(200, {
-      'Content-Type': upstream.headers.get('content-type') || 'audio/mpeg',
-      'Cache-Control':'no-store, no-transform', 'X-Accel-Buffering':'no',
+      'Content-Type': type,
+      'Cache-Control':'no-store, no-transform','X-Accel-Buffering':'no',
       'Access-Control-Allow-Origin':'*'
     });
     const audio = Readable.fromWeb(upstream.body);
     audio.on('error', () => { if (!res.destroyed) res.destroy(); });
-    audio.on('end', () => { completed = true; });
     audio.pipe(res);
   } catch (err) {
     if (res.destroyed || controller.signal.aborted) return;
-    console.error(`[Caparaó Gospel] Streaming: ${err.message}`);
+    // ICY 200 OK é um status não-HTTP: o fetch do Node pode lançar Parse Error.
+    const looksIcy = /HPE_INVALID_CONSTANT|Expected HTTP|Invalid response|fetch failed|UND_ERR_HTTP_PARSER/i.test(
+      String(err?.message || '') + ' ' + String(err?.cause?.code || '') + ' ' + String(err?.cause?.message || '')
+    );
+    if (looksIcy && !res.headersSent) {
+      try { await streamViaIcySocket(res, UPSTREAM); return; }
+      catch (socketErr) { err = socketErr; }
+    }
+    console.error(`[Caparaó Gospel] Streaming (${STREAM}): ${err.message}`);
     if (res.headersSent) res.destroy();
-    else json(res, 502, {error:'Streaming xCAST indisponível nesta tentativa.'});
+    else json(res, 502, {error:'Não foi possível receber áudio do streaming xCAST.', detail:err.message.slice(0,140)});
   }
 }
 function stripMarkup(value) {
@@ -159,7 +234,7 @@ const server = http.createServer((req, res) => {
   let pathname;
   try { pathname = new URL(req.url, 'http://localhost').pathname; }
   catch (_) {return json(res, 400, {error:'URL inválida.'});}
-  if (pathname === '/api/health') return json(res, 200, {service:'caparao-gospel-proxy',ready:true,version:'1.9.1-caparao.1'});
+  if (pathname === '/api/health') return json(res, 200, {service:'caparao-gospel-proxy',ready:true,version:'1.9.1-caparao.2'});
   if (pathname === '/api/stream' && method === 'GET') return void proxyAudio(res);
   if (pathname === '/api/metadata' && method === 'GET') return void eventMetadata(res);
   if (pathname.startsWith('/api/')) return json(res, 404, {error:'Rota não encontrada.'});

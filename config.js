@@ -1,10 +1,10 @@
-/* Rádio Caparaó Gospel — configuração da emissora (PWA 1.9.1 personalizada). */
+/* Rádio Caparaó Gospel — configuração da emissora (PWA 1.9.1 personalizada; correção de streaming 1.9.1-caparao.2). */
 window.RADIO_CONFIG = Object.freeze({
   name: 'Rádio Caparaó Gospel',
   slogan: 'Tocando o seu Coração',
   frequency: 'Web Rádio',
   location: 'Iúna · ES',
-  streamUrl: 'http://stm17.xcast.com.br:8318',
+  streamUrl: 'http://stm17.xcast.com.br:8318/;',
   // Insira aqui somente uma URL HTTPS fornecida/validada pelo streaming.
   // Em produção com server.js, o proxy local /api/stream já usa HTTPS do site.
   secureStreamUrl: '',
