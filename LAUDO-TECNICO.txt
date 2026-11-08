@@ -1,0 +1,51 @@
+LAUDO TÉCNICO — RÁDIO CAPARAÓ GOSPEL — 08/11/2026
+Base analisada: app-main nativa.zip, PWA Nativa FM v1.9.1
+Edição entregue: 1.9.1-caparao.1
+
+1. IDENTIDADE VISUAL
+- Marca anterior substituída nas telas, textos de instalação, ARIA, SEO,
+  manifest, WhatsApp, Media Session e mensagens do aplicativo.
+- Logo oficial recebido incorporado sem redesenho; novos ícones criados
+  nas resoluções usadas pelo Android, Windows e iPhone.
+- Identidade neon da interface alterada para tons vermelhos/brancos,
+  preservando layout, botão de energia e 24 barras multicoloridas.
+- Textos: Web Rádio; Iúna/ES; Tocando o seu Coração.
+
+2. PLAYER / STREAMING
+- URL de origem: http://stm17.xcast.com.br:8318.
+- O navegador prioriza /api/stream quando o proxy Node está ativo.
+- Fallback direto via HTTP em local permitido; em site HTTPS sem proxy
+  ou stream HTTPS válido, informa o bloqueio de conteúdo inseguro.
+- Reconexão, buffers, controles multimídia e equalizador preservados.
+
+3. METADADOS
+- Retirada a dependência exclusiva da API da Zeno FM.
+- Servidor Node consulta endpoints usuais xCAST/Shoutcast/Icecast e publica
+  /api/metadata em SSE para manter o cartão TOCANDO AGORA.
+- Disponibilidade real dos metadados depende da configuração do xCAST.
+
+4. CONTATO / INSTALAÇÃO
+- WhatsApp: 5528999482110 com mensagens de pedido de música/anúncios.
+- Novo identificador do serviço, nome do aplicativo e cache próprio.
+- Arquivos antigos de referência visual/histórico da Nativa removidos.
+
+5. TESTES AUTOMATIZADOS
+[OK] Node.js: validação de sintaxe dos JS da aplicação e servidor.
+[OK] HTTP 200: index, manifest, logotipo e ícones.
+[OK] HTTP 200: /api/health identificando o proxy correto.
+[OK] HTTP 200: /api/stream com áudio simulado em servidor local.
+[OK] SSE: /api/metadata com música simulada em servidor local.
+[OK] HTTP 404: rejeição de arquivos não expostos.
+[OK] Verificações de referências e integridade do ZIP.
+
+6. TESTES AINDA NECESSÁRIOS
+[PENDENTE] Conexão com xCAST real no endereço informado.
+[PENDENTE] Compatibilidade /api/metadata com os endpoints reais da rádio.
+[PENDENTE] Instalação em Android/iPhone/Windows no dispositivo final.
+[PENDENTE] Reprodução em segundo plano, autoplay, equalizador com áudio
+          real e comportamento após perda de internet.
+[PENDENTE] Publicação e TLS em domínio próprio ou obtenção de URL HTTPS
+          para hospedagem 100% estática, como GitHub Pages.
+
+OBSERVAÇÃO: Testes com origem simulada NÃO comprovam que o streaming real
+está no ar. Nenhum servidor de produção foi hospedado nesta entrega.

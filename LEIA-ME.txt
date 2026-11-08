@@ -1,0 +1,106 @@
+RÁDIO CAPARAÓ GOSPEL — PWA PERSONALIZADA
+Base funcional: Nativa FM PWA v1.9.1 | Edição Caparaó 1.9.1-caparao.1
+===============================================================
+
+DADOS DA EMISSORA
+-----------------
+Nome: Rádio Caparaó Gospel
+Tipo: Web Rádio
+Slogan: Tocando o seu Coração
+Cidade: Iúna - ES
+WhatsApp: (28) 99948-2110  |  +55 28 99948-2110
+Streaming informado: http://stm17.xcast.com.br:8318
+Logotipo: arquivo original fornecido pelo cliente, sem redesenho.
+
+FUNCIONALIDADES PRESERVADAS
+--------------------------
+- Vitrine de instalação da PWA em Android, iPhone e Windows.
+- Player com botão único LIGAR/DESLIGAR, autoinício no aplicativo instalado.
+- Reconexão automática após falhas de sinal/rede.
+- Equalizador radial de 24 bandas com análise real do áudio sempre que
+  permitida pela origem do streaming/navegador.
+- Tela compacta sem rolagem planejada e aparência neon, agora vermelho/branco.
+- Cartão de música tocando: usa metadados disponíveis pelo xCAST quando
+  consultáveis; se não houver dados, mostra a identidade da emissora.
+- Dois botões WhatsApp com mensagens personalizadas.
+- Modo de instalação PWA, service worker e cache versionado.
+- Controles de mídia do sistema (quando suportados pelo navegador).
+
+TESTE NO COMPUTADOR (WINDOWS)
+-----------------------------
+1. Extraia o ZIP em pasta própria.
+2. Instale Node.js 20 ou mais recente, se ainda não tiver.
+3. Execute INICIAR-WINDOWS.bat e mantenha a janela do servidor aberta.
+4. Abra no Chrome/Edge: http://localhost:8080/?v=1.9.1-caparao.1
+5. Instale o aplicativo e inicie pelo ícone. O áudio tentará iniciar sozinho.
+   Por políticas do navegador/sistema, um toque em LIGAR pode ser necessário.
+6. Se o endereço não abrir, confira se outro programa ocupa a porta 8080.
+
+TESTE NO LINUX/MAC
+------------------
+1. Instale Node.js 20+.
+2. Na pasta extraída execute: sh INICIAR-LINUX-MAC.sh
+3. Abra http://localhost:8080/?v=1.9.1-caparao.1 no navegador.
+
+ATENÇÃO: STREAMING HTTP E PUBLICAÇÃO HTTPS
+-------------------------------------------
+O endereço fornecido pela emissora começa por HTTP, e não HTTPS.
+Sites/PWAs em HTTPS não podem reproduzir livremente conteúdo inseguro HTTP.
+Por isso o server.js oferece /api/stream na própria origem. Quando o site
+publicado usa HTTPS e encaminha as chamadas ao server.js, o navegador
+consome HTTPS na origem do site, embora o Node consulte o streaming original
+por HTTP. /api/health identifica esse serviço no navegador.
+
+IMPORTANTE PARA PUBLICAÇÃO:
+- GitHub Pages hospeda somente arquivos estáticos: NÃO executa server.js.
+- A versão estática em GitHub Pages precisará de um streaming HTTPS válido
+  fornecido pelo xCAST ou de outro proxy HTTPS externo adequado.
+- Se o xCAST fornecer um endereço HTTPS compatível, ajuste
+  `secureStreamUrl` em config.js. NÃO invente um https://troca-de-protocolo.
+- Alternativa: hospedar o projeto em serviço que execute Node.js 20+
+  com domínio próprio e HTTPS ativo. Neste caso /api/stream e /api/metadata
+  passam a funcionar na mesma origem.
+- Em hospedagem HTTPS exclusivamente estática com streaming só em HTTP,
+  o app mostrará aviso de configuração, para não aparentar estar no ar.
+- O servidor local em http://localhost:8080 tem permissão especial de
+  PWA/Service Worker no Chrome/Edge para desenvolvimento local.
+- Não deixe o servidor Node.js exposto em HTTP puro em produção.
+
+METADADOS (TOCANDO AGORA)
+------------------------
+O app original consultava o serviço SSE da Zeno FM. Nesta adaptação,
+server.js realiza consultas compatíveis com formatos Shoutcast/Icecast
+(stats JSON, status-json.xsl, 7.html e currentsong) e oferece os dados
+na rota local /api/metadata como SSE. A presença de título real depende
+de quais endpoints do streaming xCAST estiverem disponíveis.
+Sem dados, a interface não inventa nomes de músicas.
+
+MAPA DOS PRINCIPAIS ARQUIVOS
+----------------------------
+index.html                     Interface de instalação e rádio instalada
+styles.css                     Layout + identidade visual vermelha
+app.js                         Player/equalizador/autoinício/reconexão
+landing.js                     Instalação da PWA
+config.js                      Dados da emissora, streaming e WhatsApp
+server.js                      Servidor web, proxy de áudio e metadados
+sw.js                          Cache e atualização da interface
+manifest.webmanifest           Identidade da instalação Android/Windows
+assets/caparao-gospel-original.png  Logotipo fornecido em formato web
+icons/                          Ícones 192, 512, maskable, Apple e favicon
+LAUDO-TECNICO.txt              Relatório técnico da adaptação
+SHA256SUMS.txt                 Verificação SHA-256 dos arquivos do pacote
+
+MANTER A VERSÃO CORRETA
+----------------------
+Para evitar caches anteriores, esta edição usa uma assinatura própria de
+cache e parâmetros de versão. Ao publicar novas revisões no mesmo domínio,
+aumente versão no manifest, sw.js e URLs ?v= do index/landing/app.
+
+LIMITAÇÕES DOS TESTES REALIZADOS
+-------------------------------
+Foram validados a estrutura do ZIP, código JS (análise sintática), links
+internos, resposta HTTP do Node e proxy contra origem simulada, inclusive
+metadados e bytes de áudio simulados. Não foi possível validar o áudio do
+streaming real http://stm17.xcast.com.br:8318 a partir deste ambiente,
+porque a resolução DNS externa não funcionou. A compatibilidade no Chrome,
+Android/iPhone, autoplay e execução em segundo plano precisa de teste real.
