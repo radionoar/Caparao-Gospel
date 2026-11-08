@@ -1,5 +1,5 @@
 RÁDIO CAPARAÓ GOSPEL — PROJETO PWA COMPLETO
-Base: Nativa FM PWA v1.9.1 | Correção: Caparaó v1.9.1-caparao.2
+Base: Nativa FM PWA v1.9.1 | Correção: Caparaó v1.9.1-caparao.3
 =================================================================
 
 IDENTIDADE DA EMISSORA
@@ -28,7 +28,8 @@ FUNCIONALIDADES MANTIDAS
   políticas de reprodução automática do navegador/sistema operacional.
 - Reconexão automática para interrupções de transmissão.
 - Equalizador radial com 24 bandas baseado na energia real de áudio
-  (quando o navegador permite Web Audio/análise).
+  (quando Web Audio está permitido: com gesto do usuário e proxy
+  na mesma origem; o autoinício prioriza som nativo para evitar silêncio).
 - Cartão "Tocando agora" com metadados, quando o servidor os disponibilizar.
 - Botões WhatsApp para pedir música e anunciar; controle de mídia do sistema.
 - Service Worker atualizado sem cache de áudio/streams/metadados.
@@ -99,3 +100,30 @@ icons/                Ícones de instalação com logotipo da nova emissora
 listen.pls            Playlist enviada para identificar o streaming
 LAUDO-TECNICO.txt     Diagnóstico técnico e testes
 SHA256SUMS.txt        Somatórios SHA-256 por arquivo
+
+NOVIDADES v1.9.1-caparao.3 — REFERÊNCIA DO PLAYER E CORREÇÃO DO ÁUDIO
+------------------------------------------------------------------
+Site apresentado como referência: https://radiowebshowgospel.epizy.com/
+O acesso automático ao site foi negado (403); não foi possível ler seu código
+ou confirmar a reprodução. A rádio publicamente associada ao endereço é
+Rádio Show Gospel (Colatina/ES). O PLS também diz Radio Show Gospel, que
+não é o mesmo nome da Rádio Caparaó Gospel (Iúna/ES).
+
+Diagnóstico pelo navegador (com servidor Node iniciado):
+  http://localhost:8080/diagnostico.html
+O botão 'Verificar transmissão agora' distingue proxy ausente, resposta do
+xCAST e falha de recebimento de áudio. Sua rota é /api/diagnostico.
+Quando não existe /api/health no GitHub Pages, o aplicativo sinaliza que
+falta proxy HTTPS, em vez de manter reconexões sem esperança de tocar.
+
+Corrigida falha no fallback SHOUTcast ICY: quando cabeçalho e muitos bytes de
+áudio chegavam no mesmo pacote, o proxy podia rejeitar o cabeçalho inteiro.
+Agora o limite é aplicado apenas se o separador de cabeçalho não aparecer.
+
+Melhorada prioridade de áudio nativo antes do contexto Web Audio ter uma
+autorização do navegador. O equalizador permanece disponível quando a
+conexão for iniciada por ação do usuário e pela mesma origem (proxy).
+
+A transmissão em https:// no GitHub Pages continua exigindo uma fonte HTTPS
+realmente válida ou a implantação do proxy Node em hospedagem HTTPS. A
+correção não cria serviço HTTPS público automaticamente.

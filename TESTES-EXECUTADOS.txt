@@ -1,0 +1,17 @@
+VALIDAÇÃO LOCAL — RÁDIO CAPARAÓ GOSPEL 1.9.1-caparao.3
+====================================================================
+PASSOU: Javascript syntax via node --check dos arquivos *.js.
+PASSOU: Proxy transmitiu 12.000 bytes MP3 (origem HTTP 200 simulada).
+PASSOU: Proxy transmitiu 12.000 bytes MP3 (origem SHOUTcast ICY 200 simulada).
+PASSOU: /api/diagnostico informou dados de streaming nas simulações HTTP e ICY.
+PASSOU: /api/stream rejeita HTML remoto com HTTP 502, sem tentar tocá-lo.
+PASSOU: /api/diagnostico identifica resposta remota HTML como erro.
+PASSOU: /diagnostico.html, .css e .js respondem pelo servidor local.
+PASSOU: URL /; do PLS preservada em config.js e server.js.
+PASSOU: CSS original da Nativa FM mantido; só ajustes tipográficos e
+aviso verde para erro de proxy, mantendo tema/layout original.
+PASSOU: manifesto usa cores originais verdes e ícones Rádio Caparaó Gospel.
+PASSOU: pacote ZIP testado quanto à integridade.
+NÃO HOMOLOGADO: áudio real stm17.xcast.com.br:8318/; sem DNS externo disponível.
+NÃO HOMOLOGADO: PWA instalado em aparelho real e hospedagem HTTPS externa.
+NÃO HOMOLOGADO: site de referência epizy, que respondeu 403.

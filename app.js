@@ -40,6 +40,7 @@
     retries: 0,
     proxy: false,
     proxyFailed: false,
+    userActivated: false,
     corsBlocked: false,
     graphUnsupported: false,
     currentProxy: false,
@@ -209,11 +210,12 @@
   }
 
   function setStatus(mode, customMessage = '') {
-    ui.badge.className = `on-air-badge ${mode === 'on' ? 'is-on' : mode === 'connecting' ? 'is-connecting' : mode === 'error' ? 'is-error' : 'is-off'}`;
+    ui.badge.className = `on-air-badge ${mode === 'on' ? 'is-on' : mode === 'connecting' ? 'is-connecting' : (mode === 'error' || mode === 'blocked') ? 'is-error' : 'is-off'}`;
     const map = {
       on: ['NO AR', 'Toque para encerrar a transmissão ao vivo.'],
       connecting: ['CONECTANDO', 'Aguarde enquanto a Rádio Caparaó Gospel é sintonizada.'],
       error: ['RECONEXÃO', 'O aplicativo continua tentando reconectar automaticamente.'],
+      blocked: ['ÁUDIO INDISPONÍVEL', 'Não há uma rota de áudio HTTPS disponível. Verifique a hospedagem.'],
       off: ['DESLIGADA', 'Toque para ouvir a programação ao vivo.']
     };
     const [badge, helper] = map[mode] || map.off;
@@ -223,6 +225,8 @@
     ui.power.classList.toggle('is-powered', state.desired);
     ui.powerText.textContent = state.desired ? 'DESLIGAR RÁDIO' : 'LIGAR RÁDIO';
     ui.helper.textContent = customMessage || helper;
+    // Mostra a causa real quando falta proxy em HTTPS (não apenas 'RECONEXÃO').
+    ui.helper.classList.toggle('stream-blocked-visible', mode === 'blocked');
     ui.power.setAttribute('aria-pressed', String(state.desired));
   }
 
@@ -453,7 +457,7 @@
   function connectStream() {
     if (!state.desired) return;
     if ((!state.proxy || state.proxyFailed) && insecureStreamOnHttps) {
-      setStatus('error', 'O streaming HTTP precisa de um proxy HTTPS para funcionar neste site.');
+      setStatus('blocked', 'O streaming fornecido é HTTP. Esta hospedagem HTTPS não possui proxy ativo. O áudio não pode tocar até configurar uma origem HTTPS ou servidor proxy.');
       setConnectionInfo('Hospede server.js por HTTPS ou configure secureStreamUrl no config.js.');
       resetMeters('Aguardando endereço de streaming seguro.');
       return;
@@ -467,7 +471,10 @@
     state.progressEvents = 0;
     state.lastProgressAt = Date.now();
     state.currentProxy = state.proxy && !state.proxyFailed;
-    const canGraph = !state.graphUnsupported && (state.currentProxy || !state.corsBlocked);
+    // Sem gesto do usuário, Web Audio pode ficar suspenso e silenciar a
+    // saída por completo. O áudio nativo tem prioridade no autoinício.
+    // A análise de 24 bandas volta em reproduções iniciadas por gesto.
+    const canGraph = !state.graphUnsupported && state.userActivated && state.currentProxy;
     state.currentGraph = canGraph;
     let audio = new Audio();
     state.audio = audio;
@@ -495,7 +502,7 @@
 
     state.startupTimer = setTimeout(() => {
       state.startupTimer = null;
-      if (valid() && !state.currentHadAudio) maybeFallback('A transmissão demorou para iniciar', false);
+      if (valid() && !state.currentHadAudio) maybeFallback('A transmissão demorou para iniciar; verifique /api/diagnostico', false);
     }, STARTUP_TIMEOUT);
 
     audio.onplaying = () => {
@@ -596,6 +603,7 @@
   function powerOn() {
     if (state.desired) return;
     state.desired = true;
+    state.userActivated = true;
     state.retries = 0;
     state.proxyFailed = false;
     connectStream();
@@ -713,8 +721,8 @@
     startMetadata();
     if (state.desired && !state.audio && !state.retryTimer) {
       if (!ready && insecureStreamOnHttps) {
-        setStatus('error', 'A rádio usa HTTP. É necessário publicar o proxy HTTPS do streaming.');
-        setConnectionInfo('Streaming HTTP bloqueado em sites HTTPS. Publique server.js por HTTPS ou configure secureStreamUrl em config.js.');
+        setStatus('blocked', 'Não há streaming HTTPS disponível. Se estiver usando GitHub Pages, ele não executa server.js. É necessário obter um link HTTPS do xCAST ou hospedar o proxy.');
+        setConnectionInfo('Sem proxy HTTPS para o streaming HTTP. Veja DIAGNOSTICO-STREAMING.txt e teste o URL /api/diagnostico na hospedagem Node.');
         resetMeters('Áudio indisponível até configurar streaming HTTPS.');
       } else connectStream();
     }
@@ -743,7 +751,7 @@
   });
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=1.9.1-caparao.2').catch((error) => console.warn('Service Worker:', error)));
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=1.9.1-caparao.3').catch((error) => console.warn('Service Worker:', error)));
   }
 
   // Inicialização automática SOMENTE na PWA instalada. Na página pública

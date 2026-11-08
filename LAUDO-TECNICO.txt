@@ -1,54 +1,31 @@
-LAUDO DE CORREÇÃO — RÁDIO CAPARAÓ GOSPEL PWA 1.9.1-caparao.2
-08/11/2026
-=================================================================
-SINTOMA INFORMADO
-A versão personalizada anterior ficava continuamente em "Reconexão" e
-não reproduzia o áudio. O usuário enviou listen.pls e exigiu manter as
-cores verdes e todo o layout da Nativa FM original.
+RÁDIO CAPARAÓ GOSPEL — LAUDO DE CONTINUIDADE v1.9.1-caparao.3
+====================================================================
+1) Fonte enviada: Rádio Web Show Gospel (site com acesso 403); PLS Radio Show Gospel.
+2) A identidade da Rádio Caparaó Gospel continua conforme pedido, sem trocar a rádio alvo automaticamente.
+3) Correção visual: styles.css mantém paleta VERDE Nativa FM e layout-base.
+4) Diagnóstico de infraestrutura acrescentado em /diagnostico.html e /api/diagnostico.
+5) A nova versão prioriza elemento Audio nativo no autoinício: Web Audio
+   não fica ligado a uma saída suspensa sem gesto do usuário.
+6) Equalizador original (24 bandas) preservado para reprodução iniciada com clique,
+   quando proxy do próprio domínio permite análise de frequências.
+7) Em hospedagem HTTPS sem proxy e sem URL segura, exibe aviso explicativo
+   ao invés de ficar somente em reconexão.
+8) Limite de 12 segundos para handshake xCAST no proxy; falhas passam ao navegador.
+9) URL upstream permanece a do PLS: http://stm17.xcast.com.br:8318/;
+10) Sem alteração nos botões, logo, nome, cidade, contatos e layouts verde originais.
 
-EVIDÊNCIAS
-- A versão caparao.1 tinha `http://stm17.xcast.com.br:8318`.
-- Arquivo PLS fornecido aponta para `http://stm17.xcast.com.br:8318/;`.
-- O `Title1` do PLS é "Radio Show Gospel"; a identidade da estação precisa
-  ser confirmada com quem forneceu o streaming.
-- O pacote caparao.1 adicionava overrides vermelhos ao fim de styles.css
-  e alterava theme-color; isso contrariou o tema VERDE solicitado.
-- O navegador HTTPS bloqueia streams HTTP sem proxy HTTPS válido; isso
-  continua sendo uma limitação real de hospedagem estática.
+LIMITAÇÃO: não foi possível testar a origem xCAST real externamente a partir do
+ambiente da análise. Os testes com upstream simulado não homologam a emissora ao vivo.
+Não é correto afirmar que rádio já toca sem verificar origem e hospedagem real.
 
-CORREÇÕES
-1. `config.js`: streamUrl alterada para a URL precisa do listen.pls.
-2. `server.js`: URL upstream alterada; mantém proxy de mesma origem;
-   acrescentado fallback para SHOUTcast `ICY 200 OK` (via socket HTTP 1.0)
-   quando o fetch moderno não aceita status ICY. HTML deixa de ser
-   anunciado como áudio.
-3. `app.js`: comentário com referência ao PLS; não abandona um proxy
-   disponível por tentativa direta HTTP bloqueada quando a PWA é HTTPS.
-4. `styles.css`: restaurado o arquivo verde ORIGINAL da Nativa FM 1.9.1;
-   apenas 4 regras tipográficas extras para acomodar o novo nome.
-5. `index.html` e `manifest.webmanifest`: theme-color/background_color
-   retornaram aos valores verdes da base. Identidade Caparaó preservada.
-6. `sw.js`, index.html, manifest, app.js: versão de cache incrementada para
-   1.9.1-caparao.2 para evitar estilos antigos em cache.
-7. Atualização da documentação e inclusão do PLS fornecido.
-
-RESULTADOS DOS TESTES EXECUTADOS
-[OK] Node `--check` do app.js/server.js e outros .js.
-[OK] Servidor local /api/health, /config.js, /styles.css, manifesto.
-[OK] Simulação HTTP: servidor upstream aceita /; e fornece MP3 de verdade.
-[OK] HTTP local `/api/stream` entregou 12.000 bytes MP3.
-[OK] Simulação ICY 200 OK: fallback recebeu e repassou 12.000 bytes MP3.
-[OK] Cabeçalhos da requisição upstream ICY contêm exatamente GET /;.
-[OK] CSS com `--green:#64ff7d`, sem overrides rosa/vermelhos do pacote .1.
-[OK] Manifesto voltou para theme_color #07140d.
-[PENDENTE] Teste com stream real: DNS de stm17.xcast.com.br indisponível
-  no ambiente deste atendimento; status/som ao vivo não verificados.
-[PENDENTE] Testes visuais automatizados: Chromium bloqueou navegação
-  com ERR_BLOCKED_BY_ADMINISTRATOR no ambiente.
-[PENDENTE] Homologação real no Windows/Android/iOS e publicação HTTPS.
-
-OBSERVAÇÃO FINAL
-A divergência do caminho / vs /; é fato verificável nos arquivos e
-foi corrigida. Ela é causa plausível, mas NÃO foi comprovado que essa
-é a única causa da falha; servidor fora do ar, nome do stream incorreto,
-restrições de HTTP/HTTPS ou codec incompatível ainda podem afetar o áudio.
+TESTES LOCAIS DA NOVA VERSÃO
+- [OK] node --check do player, servidor, script de diagnóstico e demais JS.
+- [OK] Origem HTTP simulada: proxy entregou bytes MP3, status 200.
+- [OK] Origem SHOUTcast ICY 200 simulada: proxy entregou bytes MP3.
+- [OK] Diagnóstico do servidor validou origem HTTP e origem ICY.
+- [OK] Caminho /; preservado nas duas solicitações.
+- [OK] Tema CSS original verde (diferenças somente tipográficas + aviso de falha).
+- [OK] PWA/cabeçalhos de servidor verificados no teste local.
+- [NÃO REALIZADO] Reprodução real stm17.xcast.com.br:8318/; (DNS indisponível
+  neste ambiente).
+- [NÃO REALIZADO] Homologação no Android/iPhone/Windows com o servidor real.

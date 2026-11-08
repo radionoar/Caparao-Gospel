@@ -1,4 +1,4 @@
-/* Rádio Caparaó Gospel — configuração da emissora (PWA 1.9.1 personalizada; correção de streaming 1.9.1-caparao.2). */
+/* Rádio Caparaó Gospel — configuração da emissora (PWA 1.9.1 personalizada; correção de streaming 1.9.1-caparao.3). */
 window.RADIO_CONFIG = Object.freeze({
   name: 'Rádio Caparaó Gospel',
   slogan: 'Tocando o seu Coração',

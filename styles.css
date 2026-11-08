@@ -215,3 +215,6 @@ html:not([data-pwa-display="standalone"]) #appShell{display:none!important}
 .brand-wordmark strong{font-size:clamp(12px,2.05dvh,20px);letter-spacing:0;white-space:normal;line-height:1.07}
 @media(max-height:685px){.brand-wordmark strong{font-size:12px}}
 @media(max-width:345px){.brand-wordmark strong{font-size:11px}}
+
+/* Apenas erro de infraestrutura: mensagem legível sem mudar o tema verde original. */
+#playbackHelper.stream-blocked-visible{position:fixed!important;bottom:max(12px, env(safe-area-inset-bottom))!important;left:12px!important;right:12px!important;z-index:40!important;width:auto!important;height:auto!important;padding:12px!important;margin:0!important;clip:auto!important;clip-path:none!important;white-space:normal!important;overflow:visible!important;border:1px solid #64ff7d!important;border-radius:10px!important;background:#06180eef!important;box-shadow:0 0 15px #20e34933!important;color:#e9ffed!important;font-size:12px!important;line-height:1.4!important;text-align:center!important}

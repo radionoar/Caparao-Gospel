@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Rádio Caparaó Gospel 1.9.1-caparao.1 - PWA
+title Rádio Caparaó Gospel 1.9.1-caparao.3 - PWA
 cd /d "%~dp0"
 where node >nul 2>nul
 if errorlevel 1 (
@@ -25,11 +25,12 @@ if not errorlevel 1 (
 
 echo.
 echo ===================================================
-echo RADIO CAPARAO GOSPEL - PROJETO ATUALIZADO - VERSAO 1.9.1-caparao.1
+echo RADIO CAPARAO GOSPEL - PROJETO ATUALIZADO - VERSAO 1.9.1-caparao.3
 echo ===================================================
 echo Pasta: %~dp0
+echo Diagnostico do audio: http://localhost:8080/diagnostico.html
 echo Quando aparecer a confirmacao abaixo, abra:
-echo http://localhost:8080/?v=1.9.1-caparao.1
+echo http://localhost:8080/?v=1.9.1-caparao.3
 echo.
 node server.js
 if errorlevel 1 pause

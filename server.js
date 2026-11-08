@@ -17,7 +17,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 const STREAM = process.env.RADIO_STREAM_URL || 'http://stm17.xcast.com.br:8318/;';
 const UPSTREAM = new URL(STREAM);
 const STATIC = new Set([
-  '/index.html', '/styles.css', '/gate.js', '/landing.js', '/app.js', '/config.js', '/sw.js', '/manifest.webmanifest',
+  '/diagnostico.html', '/diagnostico.css', '/diagnostico.js', '/index.html', '/styles.css', '/gate.js', '/landing.js', '/app.js', '/config.js', '/sw.js', '/manifest.webmanifest',
   '/assets/caparao-gospel-original.png', '/assets/whatsapp.svg', '/assets/neon-waves-v2.svg',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png',
   '/icons/apple-touch-icon.png', '/icons/favicon-64.png'
@@ -33,8 +33,8 @@ function secureHeaders(res) {
   res.setHeader('Cross-Origin-Opener-Policy','same-origin');
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
-    "connect-src 'self' http://stm17.xcast.com.br:8318; " +
-    "media-src 'self' http://stm17.xcast.com.br:8318; " +
+    "connect-src 'self' https: http://stm17.xcast.com.br:8318; " +
+    "media-src 'self' https: http://stm17.xcast.com.br:8318; " +
     "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
 }
 function json(res, code, obj) {
@@ -89,9 +89,13 @@ function streamViaIcySocket(res, target) {
       if (finished || res.destroyed) return;
       if (!ready) {
         head = Buffer.concat([head, chunk]);
-        if (head.length > 32768) return fail(new Error('Cabeçalho ICY excedeu o limite.'));
+        // O primeiro pacote pode conter cabeçalho + muitos KB de áudio.
+        // Não tratar todo o pacote como cabeçalho (causava reconexões falsas).
         const pos = head.indexOf('\r\n\r\n');
-        if (pos < 0) return;
+        if (pos < 0) {
+          if (head.length > 32768) return fail(new Error('Cabeçalho ICY excedeu o limite.'));
+          return;
+        }
         const header = head.subarray(0, pos).toString('latin1');
         const status = header.split('\r\n',1)[0];
         const ok = /^(?:ICY|HTTP\/1\.[01]) 200(?: |$)/.test(status);
@@ -121,13 +125,15 @@ function streamViaIcySocket(res, target) {
 }
 async function proxyAudio(res) {
   const controller = new AbortController();
-  res.on('close', () => controller.abort());
+  const connectTimer = setTimeout(() => controller.abort(new Error('Tempo limite ao conectar ao xCAST (12 segundos).')),12000);
+  res.on('close', () => {clearTimeout(connectTimer); controller.abort();});
   try {
     const upstream = await fetch(STREAM, {
       redirect:'follow', signal:controller.signal,
       headers:{'Accept':'audio/mpeg, audio/aac, */*','Icy-MetaData':'0'},
       // Stream ao vivo: o timeout deve ser aplicado só ao início, não ao áudio contínuo.
     });
+    clearTimeout(connectTimer);
     if (!upstream.ok || !upstream.body) throw new Error(`Status remoto ${upstream.status}`);
     const type = upstream.headers.get('content-type') || 'audio/mpeg';
     if (!/^(?:audio\/|application\/octet-stream)/i.test(type)) {
@@ -143,7 +149,8 @@ async function proxyAudio(res) {
     audio.on('error', () => { if (!res.destroyed) res.destroy(); });
     audio.pipe(res);
   } catch (err) {
-    if (res.destroyed || controller.signal.aborted) return;
+    clearTimeout(connectTimer);
+    if (res.destroyed) return;
     // ICY 200 OK é um status não-HTTP: o fetch do Node pode lançar Parse Error.
     const looksIcy = /HPE_INVALID_CONSTANT|Expected HTTP|Invalid response|fetch failed|UND_ERR_HTTP_PARSER/i.test(
       String(err?.message || '') + ' ' + String(err?.cause?.code || '') + ' ' + String(err?.cause?.message || '')
@@ -227,6 +234,94 @@ function eventMetadata(res) {
   res.on('close', () => { closed = true; clearInterval(timer); clearInterval(ping); });
   poll();
 }
+/**
+ * Uma verificação pontual da origem, sem depender da inicialização do player.
+ * Nunca lê indefinidamente: pega somente um bloco pequeno para diagnosticar.
+ * Retorna erros úteis sem expor credenciais ou fingir que o stream está no ar.
+ */
+function diagnoseIcySocket(target) {
+  return new Promise((resolve, reject) => {
+    if (target.protocol !== 'http:') return reject(new Error('Servidor não usa HTTP para ICY.'));
+    const sock = net.createConnection({host:target.hostname,port:Number(target.port || 80)});
+    const timer = setTimeout(() => {sock.destroy(); reject(new Error('Tempo limite ICY na origem.'));},8500);
+    let buffer = Buffer.alloc(0), completed = false;
+    const done = (err,result) => {
+      if (completed) return;
+      completed = true;
+      clearTimeout(timer);
+      sock.destroy();
+      if (err) reject(err); else resolve(result);
+    };
+    sock.once('connect', () => sock.write(
+      `GET ${target.pathname}${target.search} HTTP/1.0\r\nHost: ${target.host}\r\nUser-Agent: Caparao-Diagnostico/1.9.1\r\nIcy-MetaData: 0\r\nConnection: close\r\n\r\n`
+    ));
+    sock.on('data', chunk => {
+      if (completed) return;
+      buffer = Buffer.concat([buffer,chunk]);
+      const pos = buffer.indexOf('\r\n\r\n');
+      if (pos === -1) {
+        if (buffer.length > 32768) return done(new Error('Cabeçalho ICY grande ou inválido.'));
+        return;
+      }
+      const head = buffer.subarray(0,pos).toString('latin1');
+      const status = head.split('\r\n')[0];
+      if (!/^(?:ICY|HTTP\/1\.[01]) 200(?: |$)/.test(status))
+        return done(new Error('Resposta do servidor: '+status.slice(0,100)));
+      const type = /(?:^|\r\n)content-type:\s*([^\r\n]+)/i.exec(head)?.[1]?.trim() || 'audio/mpeg';
+      if (!/^(?:audio\/|application\/octet-stream)/i.test(type))
+        return done(new Error('Origem devolveu conteúdo não-áudio: '+type));
+      const tail = buffer.subarray(pos+4);
+      if (tail.length) return done(null,{httpStatus:200,contentType:type,bytesReceived:tail.length,validAudio:true,via:'ICY (socket)'});
+    });
+    sock.once('error',done);
+    sock.once('end',()=>done(new Error('Origem ICY fechou sem enviar bytes de áudio.')));
+  });
+}
+
+async function diagnoseUpstream() {
+  const outcome = {upstream:STREAM, validAudio:false, checkedAt:new Date().toISOString()};
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(),8500);
+  let response;
+  try {
+    response = await fetch(STREAM, {signal:controller.signal,redirect:'follow',
+      headers:{Accept:'audio/mpeg, audio/aac, */*','Icy-MetaData':'0'}});
+    outcome.httpStatus = response.status;
+    outcome.contentType = response.headers.get('content-type') || '(ausente)';
+    if (!response.ok) throw new Error(`HTTP ${response.status} da origem`);
+    if (!response.body) throw new Error('O servidor não enviou um corpo de áudio.');
+    if (!/^(audio\/|application\/octet-stream)/i.test(outcome.contentType))
+      throw new Error('A origem devolveu conteúdo que não é áudio.');
+    const reader = response.body.getReader();
+    let chunk;
+    try { ({value:chunk} = await reader.read()); }
+    finally {reader.cancel().catch(()=>{});}
+    if (!chunk?.length) throw new Error('Nenhum byte de áudio foi recebido.');
+    outcome.bytesReceived = chunk.length;
+    outcome.validAudio = true;
+    outcome.message='A origem respondeu com áudio; se o player falhar, verifique a hospedagem HTTPS/CORS ou codec.';
+  } catch(err) {
+    const looksIcy = /HPE_INVALID_CONSTANT|Expected HTTP|Invalid response|fetch failed|UND_ERR_HTTP_PARSER/i.test(
+      String(err?.message || '')+' '+String(err?.cause?.code || '')+' '+String(err?.cause?.message || '')
+    );
+    if (looksIcy && !controller.signal.aborted) {
+      try {
+        Object.assign(outcome,await diagnoseIcySocket(UPSTREAM));
+        outcome.message='Origem retornou bytes de áudio pelo protocolo SHOUTcast ICY.';
+      } catch (socketErr) {outcome.error='Verificações HTTP e ICY falharam: '+socketErr.message;}
+    } else {
+      outcome.error = controller.signal.aborted ? 'Tempo limite de 8,5 segundos: streaming inacessível ou sem bytes de áudio.'
+        : (err?.message || 'Falha desconhecida');
+    }
+    if (!outcome.validAudio) outcome.message = 'Confirme se a rádio está no ar e se o endereço/porta foram fornecidos pelo titular do streaming.';
+  } finally {
+    clearTimeout(timer);
+    if (response?.body && !response.body.locked) response.body.cancel().catch(()=>{});
+    controller.abort();
+  }
+  return outcome;
+}
+
 const server = http.createServer((req, res) => {
   secureHeaders(res);
   const method = req.method || 'GET';
@@ -234,7 +329,8 @@ const server = http.createServer((req, res) => {
   let pathname;
   try { pathname = new URL(req.url, 'http://localhost').pathname; }
   catch (_) {return json(res, 400, {error:'URL inválida.'});}
-  if (pathname === '/api/health') return json(res, 200, {service:'caparao-gospel-proxy',ready:true,version:'1.9.1-caparao.2'});
+  if (pathname === '/api/health') return json(res, 200, {service:'caparao-gospel-proxy',ready:true,upstreamNotYetVerified:true,version:'1.9.1-caparao.3'});
+  if (pathname === '/api/diagnostico' && method === 'GET') return void diagnoseUpstream().then((result)=>json(res,200,result)).catch((e)=>json(res,502,{error:e.message}));
   if (pathname === '/api/stream' && method === 'GET') return void proxyAudio(res);
   if (pathname === '/api/metadata' && method === 'GET') return void eventMetadata(res);
   if (pathname.startsWith('/api/')) return json(res, 404, {error:'Rota não encontrada.'});
