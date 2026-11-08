@@ -1,0 +1,45 @@
+LAUDO — RECONSTRUÇÃO LIMPA A PARTIR DO PROJETO ORIGINAL
+08/11/2026 — RÁDIO CAPARAÓ GOSPEL
+
+BASE E ESCOPO
+SHA-256 dos dois ZIPs originais: 98d2134810d1cf57459cf90235cae9e722755f76f4b30bb40f1b34eeef7b5d1d
+Projeto-base REAL: Nativa FM 1.9.1, 45 entradas no ZIP original.
+Não reutilizados app.js, HTML ou CSS das versões adaptadas anteriores.
+Foi conservado styles.css byte a byte, incluindo o tema verde e VU radial de 24 bandas.
+Foram trocados nome, slogan, cidade, ícones, WhatsApp e streaming.
+
+STREAMING
+URL principal usada pelo PWA: https://stm17.xcast.com.br:8318/;
+Formato esperado: HE-AAC 64 kbps / 44,1 kHz (informado pelo proprietário).
+Player original preservado com fallback da tentativa CORS+WebAudio para nativo;
+impede silenciamento do áudio quando CORS é negado.
+O formato HE-AAC pode não ser decodificável por todo navegador.
+
+METADADOS
+A API Zeno de eventos foi removida do código ativo. O sistema consulta
+/currentsong, /stats?sid=1&json=1, /7.html e, via proxy, metadados ICY.
+Se servidor não fornecer informações ou bloquear CORS, exibe rótulo padrão
+sem fabricar artista ou título.
+
+VU METER
+Algoritmo original preservado: AnalyserNode, FFT 8192, 24 bandas, ataque e decaimento.
+Funciona quando áudio é entregue com CORS ou via proxy HTTPS/mesma origem.
+Sem CORS, player nativo pode tocar e o VU fica parado, por regras de segurança Web Audio.
+
+TESTES EXECUTADOS
+[OK] Os dois ZIPs originais possuem o mesmo SHA-256.
+[OK] SHA-256 do styles.css novo é o mesmo do styles.css original.
+[OK] Sintaxe app.js, landing.js, gate.js, server.js, Worker e diagnostico.js: Node --check.
+[OK] Integração local mock ICY 200 OK com bytes AAC e normalização de Content-Type.
+[OK] Endpoint local mock /api/metadata interpreta /currentsong e entrega título em JSON.
+[OK] O server.js serve a nova identidade e o stylesheet original.
+[OK] Manifesto JSON válido, ícones gerados do logo enviado.
+[OK] Arquivos no ZIP verificados e SHA256SUMS.txt produzido.
+[PENDENTE] Reprodução do xCAST REAL: rede deste ambiente sem resolução DNS do host.
+[PENDENTE] VU e metadados REAIS no GitHub Pages: dependem de CORS ou Worker implantado.
+[PENDENTE] Interface visual em Chromium automático: bloqueio do ambiente
+          net::ERR_BLOCKED_BY_ADMINISTRATOR ao abrir localhost.
+[PENDENTE] Teste da PWA INSTALADA em Android/iOS/Windows e autoplay do aparelho.
+
+O pacote não altera a infraestrutura existente do GitHub Pages automaticamente,
+não cria um Worker remoto nem pode afirmar que o áudio da emissora foi ouvido ao vivo.
