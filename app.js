@@ -173,9 +173,10 @@
   const STABLE_PLAYBACK = 20000;
   const RETRY_DELAYS = [2, 4, 7, 12, 20, 30, 45, 60];
   const streamUrl = cfg.streamUrl;
+  // /currentsong?sid=1 é a fonte oficial confirmada pela emissora; consultar primeiro.
   // O xCAST usa metadados SHOUTcast (não a API SSE da Zeno FM).
   const metadataUrls = [
-    new URL('/currentsong?sid=1', streamUrl).href,
+    cfg.metadataUrl || new URL('/currentsong?sid=1', streamUrl).href,
     new URL('/stats?sid=1&json=1', streamUrl).href,
     new URL('/7.html', streamUrl).href
   ];
@@ -614,39 +615,10 @@
     else powerOn();
   });
 
-  function parseMetadata(value) {
-    let data;
-    try { data = JSON.parse(value); } catch (_) { data = {streamTitle: value}; }
-    if (!data || typeof data !== 'object') return null;
-    const song = data.now_playing?.song || data.song;
-    let artist = typeof data.artist === 'string' ? data.artist : '';
-    let title = typeof data.title === 'string' ? data.title : '';
-    let raw = data.streamTitle || data.stream_title || data.streamtitle || data.songtitle || data.stats?.songtitle || data.current_song || data.now_playing?.text || '';
-    if (!raw && typeof data.currentSong === 'string') raw = data.currentSong;
-    if (song && typeof song === 'object') {
-      artist = song.artist || artist;
-      title = song.title || title;
-      raw = raw || song.text;
-    } else if (typeof song === 'string') {
-      raw = raw || song;
-    }
-    if (typeof raw === 'string' && raw.trim()) {
-      const parts = raw.trim().split(/\s+[-–—]\s+/);
-      if (parts.length > 1) {
-        artist = artist || parts.shift();
-        title = title || parts.join(' - ');
-      } else {
-        title = title || raw;
-      }
-    }
-    // /7.html clássico do SHOUTcast contém os 6 números iniciais e depois o título.
-    if (typeof raw === 'string' && /^\d+(,\d+){5},/.test(raw)) {
-      title = raw.split(',').slice(6).join(',').trim() || title; artist = '';
-    }
-    title = String(title || '').trim().slice(0, 140);
-    artist = String(artist || '').trim().slice(0, 120);
-    if (!title || /^(unknown|null|undefined|offline|no metadata|r[aá]dio show gospel|r[aá]dio capara[oó] gospel)$/i.test(title)) return null;
-    return {title, artist};
+  // O xCAST retorna apenas texto, por exemplo: "Artista - Nome da música".
+  // Não interpretar o texto como JSON e não dividir indevidamente o nome.
+  function parseMetadata(raw) {
+    return window.CAPARAO_METADATA?.parse(raw) || null;
   }
 
   function updateMediaSession() {
@@ -671,53 +643,52 @@
     }
   }
 
-  // xCAST/SHOUTcast: consulta periódica. Não inclui metadados ICY dentro do fluxo de áudio.
-  // Consulta pela mesma origem se houver proxy; em GitHub Pages tenta endpoints CORS públicos.
-  function normalizeMetaResponse(raw) {
-    const stripped = String(raw || '').replace(/<[^>]*>/g, '').trim();
-    let value = stripped;
-    try { value = JSON.parse(raw); } catch (_) { /* retorno texto ou 7.html */ }
-    if (typeof value === 'string') return parseMetadata(JSON.stringify({streamTitle: value}));
-    if (Array.isArray(value)) return parseMetadata(JSON.stringify({streamTitle: value[0]?.title || ''}));
-    return parseMetadata(JSON.stringify(value));
-  }
-
-  async function fetchMeta(url) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), url.startsWith(proxyApi) ? 18000 : 4500);
-    try {
-      const result = await fetch(url, {cache: 'no-store', signal: controller.signal, headers: {'Accept': 'application/json,text/plain,text/html,*/*'}});
-      if (!result.ok) return null;
-      const text = await result.text();
-      if (text.length > 50000) return null;
-      return normalizeMetaResponse(text);
-    } catch (_) { return null; }
-    finally { clearTimeout(timer); }
-  }
-
+  // Metadados são TEXTO SIMPLES (/currentsong?sid=1), não a transmissão de áudio.
+  // GitHub Pages é outra origem; se o xCAST bloquear CORS, tenta leitura pública
+  // auxiliar para os títulos (sem trafegar dados pessoais). O proxy próprio,
+  // quando configurado e online, é preferível à ponte pública.
+  let directMetaCooldownUntil = 0;
   async function pollMetadata() {
     if (state.metadataTimer) clearTimeout(state.metadataTimer);
     state.metadataTimer = null;
-    const urls = state.proxy ? [`${proxyApi}/metadata`, ...metadataUrls] : metadataUrls;
+    const sources = [];
+    if (Date.now() >= directMetaCooldownUntil) {
+      sources.push({name: 'xCAST direto', url: cfg.metadataUrl || metadataUrls[0], timeout: 4500, direct: true});
+    }
+    if (state.proxy) sources.push({name: 'Proxy próprio', url: `${proxyApi}/metadata`, timeout: 7000});
+    if (cfg.metadataFallbackUrl) sources.push({name: 'Ponte de metadados', url: cfg.metadataFallbackUrl, timeout: 8000});
     let item = null;
-    for (const url of urls) {
-      item = await fetchMeta(url);
-      if (item) break;
+    let cause = '';
+    for (const source of sources) {
+      const result = await window.CAPARAO_METADATA.read(source.url, source.timeout);
+      if (result.item) {
+        item = result.item;
+        break;
+      }
+      cause = result.error || cause;
+      if (source.direct && /^(Rede ou CORS:|Tempo esgotado)/.test(result.error || '')) {
+        // Não repetir uma consulta cross-origin bloqueada a cada 15 segundos.
+        directMetaCooldownUntil = Date.now() + 120000;
+      }
     }
     if (item) {
       state.metadataSeen = true;
       ui.title.textContent = item.title;
-      ui.artist.textContent = item.artist || `${cfg.name} · Ao vivo`;
-      ui.metaLabel.textContent = 'METADADOS AO VIVO';
+      ui.artist.textContent = `${cfg.name} · Ao vivo`;
+      ui.metaLabel.textContent = 'TÍTULO AO VIVO DO XCAST';
       updateMediaSession();
     } else {
-      ui.metaLabel.textContent = state.metadataSeen ? 'ATUALIZANDO METADADOS…' : 'METADADOS NÃO FORNECIDOS';
+      ui.metaLabel.textContent = 'TÍTULO NÃO ACESSÍVEL: ' + (cause || 'nenhuma fonte disponível');
+      if (!state.metadataSeen) {
+        ui.title.textContent = 'Informação da música indisponível';
+        ui.artist.textContent = 'Consulte diagnostico.html';
+      }
     }
-    state.metadataTimer = setTimeout(pollMetadata, item ? 15000 : 30000);
+    state.metadataTimer = setTimeout(pollMetadata, item ? 15000 : 25000);
   }
 
   function startMetadata() {
-    ui.metaLabel.textContent = 'AGUARDANDO METADADOS';
+    ui.metaLabel.textContent = 'CONSULTANDO TÍTULO DA MÚSICA';
     pollMetadata();
   }
 
@@ -769,7 +740,7 @@
   });
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=caparao-rebase-1').catch((error) => console.warn('Service Worker:', error)));
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=caparao-meta-sid1-v2').catch((error) => console.warn('Service Worker:', error)));
   }
 
   // Inicialização automática SOMENTE na PWA instalada. Na página pública

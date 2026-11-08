@@ -1,7 +1,7 @@
 /* Caparaó Gospel — Base original 1.9.1: cache apenas da interface; streaming e metadados nunca entram em cache. */
-const CACHE = 'caparao-gospel-rebase-1';
+const CACHE = 'caparao-gospel-meta-texto-v3';
 const FILES = [
-  './', './index.html', './styles.css', './gate.js', './landing.js', './app.js', './config.js', './manifest.webmanifest',
+  './', './index.html', './styles.css', './gate.js', './landing.js', './app.js', './metadata.js', './config.js', './manifest.webmanifest',
   './assets/caparao-gospel-original.png', './assets/whatsapp.svg', './assets/neon-waves-v2.svg',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png', './icons/favicon-64.png'
