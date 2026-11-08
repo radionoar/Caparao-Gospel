@@ -13,7 +13,7 @@ const {Readable} = require('node:stream');
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
-const STREAM = process.env.RADIO_STREAM_URL || 'http://stm17.xcast.com.br:8318/;';
+const STREAM = process.env.RADIO_STREAM_URL || 'http://stm17.xcast.com.br:8318';
 const UPSTREAM = new URL(STREAM);
 const STATIC = new Set([
   '/index.html', '/styles.css', '/gate.js', '/landing.js', '/app.js', '/config.js', '/sw.js', '/manifest.webmanifest',
@@ -32,8 +32,8 @@ function secureHeaders(res) {
   res.setHeader('Cross-Origin-Opener-Policy','same-origin');
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
-    "connect-src 'self' http://stm17.xcast.com.br:8318/; " +
-    "media-src 'self' http://stm17.xcast.com.br:8318/; " +
+    "connect-src 'self' http://stm17.xcast.com.br:8318; " +
+    "media-src 'self' http://stm17.xcast.com.br:8318; " +
     "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
 }
 function json(res, code, obj) {
