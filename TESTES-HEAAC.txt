@@ -1,0 +1,30 @@
+TESTES DE CÓDIGO — V1.9.1-CAPARAO.5 — 08/11/2026
+
+APROVADOS
+1. node --check app.js, config.js, server.js, diagnostico.js e Worker.
+2. Simulação do app em modo PWA instalado:
+   - GitHub Pages HTTPS seleciona https://stm17.xcast.com.br:8318/;
+   - Página HTTP seleciona http://stm17.xcast.com.br:8318/;
+   - Se houver Worker configurado, erro HE-AAC da fonte direta tenta /stream.
+   - Sem Worker, erro de formato informa a causa sem loop infinito.
+3. Proxy Node.js com servidor AAC simulado (audio/aacp):
+   - Resposta 200, tipo ajustado para audio/aac, inline;
+   - Primeiros bytes de áudio AAC iguais aos do arquivo simulado.
+4. Worker com conexão TCP simulada:
+   - ICY 200 OK, bytes AAC no mesmo buffer dos cabeçalhos;
+   - HTTP 200, cabeçalhos separados, audio/aac ou octet-stream;
+   - Recusa conteúdo HTML e HTTP 503;
+   - /diagnostico, /health e 404 de rota desconhecida.
+5. CSS original da Nativa FM: preservação byte-a-byte do conteúdo base,
+   com regras adicionais exclusivamente tipográficas/diagnóstico.
+6. Confirmação de existência dos assets principais em index.html e da
+   nova versão do service worker.
+
+NÃO HOMOLOGADOS
+- Acesso ao xCAST real: DNS da rádio não acessível deste ambiente.
+- Audição no navegador real: Chromium automatizado bloqueado por política
+  do ambiente (ERR_BLOCKED_BY_ADMINISTRATOR).
+- HE-AAC real: o áudio de teste foi AAC-LC ADTS sintético, não um arquivo
+  HE-AAC da emissora. Nenhum resultado de som audível deve ser inferido.
+- Cloudflare Worker real: ainda não foi implantado em conta do usuário.
+- Dispositivos Android/iOS/Windows de usuário: não testados.

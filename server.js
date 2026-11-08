@@ -14,8 +14,16 @@ const net = require('node:net');
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
-const STREAM = process.env.RADIO_STREAM_URL || 'https://stm17.xcast.com.br:8318/;';
+const STREAM = process.env.RADIO_STREAM_URL || 'http://stm17.xcast.com.br:8318/;';
 const UPSTREAM = new URL(STREAM);
+// A rádio transmite HE-AAC. Alguns SHOUTcast enviam audio/aacp ou um
+// tipo binário, que certos navegadores tentam baixar em vez de reproduzir.
+function playableAudioType(value) {
+  const type = String(value || '').split(';')[0].trim().toLowerCase();
+  if (type === 'audio/aacp' || type === 'audio/x-aacp' || type === 'audio/x-aac' || type === 'application/octet-stream' || !type) return 'audio/aac';
+  return type;
+}
+
 const STATIC = new Set([
   '/diagnostico.html', '/diagnostico.css', '/diagnostico.js', '/index.html', '/styles.css', '/gate.js', '/landing.js', '/app.js', '/config.js', '/sw.js', '/manifest.webmanifest',
   '/assets/caparao-gospel-original.png', '/assets/whatsapp.svg', '/assets/neon-waves-v2.svg',
@@ -100,12 +108,12 @@ function streamViaIcySocket(res, target) {
         const status = header.split('\r\n',1)[0];
         const ok = /^(?:ICY|HTTP\/1\.[01]) 200(?: |$)/.test(status);
         if (!ok) return fail(new Error(`Status inválido da origem: ${status.slice(0,90)}`));
-        const type = /(?:^|\r\n)content-type:\s*([^\r\n]+)/i.exec(header)?.[1]?.trim() || 'audio/mpeg';
+        const type = /(?:^|\r\n)content-type:\s*([^\r\n]+)/i.exec(header)?.[1]?.trim() || 'audio/aac';
         if (!/^(?:audio\/|application\/octet-stream)/i.test(type))
           return fail(new Error(`SHOUTcast enviou conteúdo não-audio: ${type}`));
         ready = true;
         sock.setTimeout(90000, () => fail(new Error('Sem novos dados do streaming ICY.')));
-        res.writeHead(200, {'Content-Type':type,'Cache-Control':'no-store, no-transform',
+        res.writeHead(200, {'Content-Type':playableAudioType(type),'Content-Disposition':'inline','Cache-Control':'no-store, no-transform',
           'X-Accel-Buffering':'no','Access-Control-Allow-Origin':'*'});
         const tail = head.subarray(pos + 4);
         head = Buffer.alloc(0);
@@ -135,13 +143,14 @@ async function proxyAudio(res) {
     });
     clearTimeout(connectTimer);
     if (!upstream.ok || !upstream.body) throw new Error(`Status remoto ${upstream.status}`);
-    const type = upstream.headers.get('content-type') || 'audio/mpeg';
+    const type = upstream.headers.get('content-type') || 'audio/aac';
     if (!/^(?:audio\/|application\/octet-stream)/i.test(type)) {
       await upstream.body.cancel().catch(() => {});
       throw new Error(`Origem retornou ${type} em vez de áudio (confira URL /;).`);
     }
     res.writeHead(200, {
-      'Content-Type': type,
+      'Content-Type': playableAudioType(type),
+      'Content-Disposition': 'inline',
       'Cache-Control':'no-store, no-transform','X-Accel-Buffering':'no',
       'Access-Control-Allow-Origin':'*'
     });
@@ -267,7 +276,7 @@ function diagnoseIcySocket(target) {
       const status = head.split('\r\n')[0];
       if (!/^(?:ICY|HTTP\/1\.[01]) 200(?: |$)/.test(status))
         return done(new Error('Resposta do servidor: '+status.slice(0,100)));
-      const type = /(?:^|\r\n)content-type:\s*([^\r\n]+)/i.exec(head)?.[1]?.trim() || 'audio/mpeg';
+      const type = /(?:^|\r\n)content-type:\s*([^\r\n]+)/i.exec(head)?.[1]?.trim() || 'audio/aac';
       if (!/^(?:audio\/|application\/octet-stream)/i.test(type))
         return done(new Error('Origem devolveu conteúdo não-áudio: '+type));
       const tail = buffer.subarray(pos+4);
@@ -329,7 +338,7 @@ const server = http.createServer((req, res) => {
   let pathname;
   try { pathname = new URL(req.url, 'http://localhost').pathname; }
   catch (_) {return json(res, 400, {error:'URL inválida.'});}
-  if (pathname === '/api/health') return json(res, 200, {service:'caparao-gospel-proxy',ready:true,upstreamNotYetVerified:true,version:'1.9.1-caparao.3'});
+  if (pathname === '/api/health') return json(res, 200, {service:'caparao-gospel-proxy',ready:true,upstreamNotYetVerified:true,version:'1.9.1-caparao.5'});
   if (pathname === '/api/diagnostico' && method === 'GET') return void diagnoseUpstream().then((result)=>json(res,200,result)).catch((e)=>json(res,502,{error:e.message}));
   if (pathname === '/api/stream' && method === 'GET') return void proxyAudio(res);
   if (pathname === '/api/metadata' && method === 'GET') return void eventMetadata(res);

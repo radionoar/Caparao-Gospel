@@ -1,5 +1,5 @@
 /* Rádio Caparaó Gospel: cache apenas da interface; streaming e metadados nunca entram em cache. */
-const CACHE = 'caparao-gospel-v1.9.1-3';
+const CACHE = 'caparao-gospel-v1.9.1-5';
 const FILES = [
   './', './index.html', './styles.css', './gate.js', './landing.js', './app.js', './config.js', './manifest.webmanifest',
   './assets/caparao-gospel-original.png', './assets/whatsapp.svg', './assets/neon-waves-v2.svg',

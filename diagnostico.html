@@ -1,1 +1,22 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnóstico — Rádio Caparaó Gospel</title><link rel="stylesheet" href="./diagnostico.css"></head><body><h1>Diagnóstico do streaming — Rádio Caparaó Gospel</h1><p>Esta página identifica falhas de implantação e do servidor remoto sem alterar o tema do player.</p><p id="mode"></p><button id="go">Verificar transmissão agora</button><pre id="out">Aguardando verificação.</pre><p><a href="./">Voltar ao aplicativo</a></p><script src="./diagnostico.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnóstico de áudio — Rádio Caparaó Gospel</title><link rel="stylesheet" href="./diagnostico.css?v=5"></head>
+<body>
+<h1>Diagnóstico — Rádio Caparaó Gospel</h1>
+<p>A rádio usa <strong>HE-AAC · 64 kbps · 44,1 kHz</strong>. O GitHub Pages roda em HTTPS. O player tentará primeiro o endereço seguro informado pelo responsável, sem alterar a origem HTTP original.</p>
+<p id="mode"></p>
+<h2>1. Testar transmissão HTTPS direta</h2>
+<p><code>https://stm17.xcast.com.br:8318/;</code></p>
+<p>O endereço pode iniciar download quando aberto na barra do navegador, mas isso não confirma a reprodução pelo elemento de áudio. Clique em <strong>Testar áudio</strong> e verifique se consegue ouvir a programação:</p>
+<div class="buttons"><button id="nativeStart" type="button">Testar áudio</button><button id="nativeStop" type="button">Parar</button></div>
+<audio id="nativeAudio" controls preload="none" aria-label="Teste de reprodução HE-AAC"></audio>
+<pre id="nativeResult" role="status" aria-live="polite">Aguardando teste. O player HE-AAC depende da compatibilidade do navegador.</pre>
+<h2>2. Proxy HTTPS opcional (se o teste direto falhar)</h2>
+<p>O proxy <strong>não é necessário se o áudio direto funcionar</strong>. Se o navegador rejeitar o HE-AAC ou os cabeçalhos, publique o Worker que vem no ZIP e informe aqui a URL HTTPS dele.</p>
+<label for="workerUrl"><strong>Endereço HTTPS do Worker Cloudflare (sem /stream)</strong></label>
+<input type="url" id="workerUrl" autocomplete="url" inputmode="url" placeholder="https://nome.sua-conta.workers.dev" spellcheck="false">
+<p class="hint">Salvar aqui altera apenas este navegador. Para configurar todos os ouvintes, coloque a URL em <code>config.js</code>, no campo <code>proxyBaseUrl</code>, e publique novamente no GitHub Pages.</p>
+<div class="buttons"><button id="save" type="button">Salvar neste navegador</button><button id="go" type="button">Testar o Worker</button><button id="clear" type="button">Apagar Worker local</button></div>
+<pre id="out" role="status" aria-live="polite">Nenhum Worker é obrigatório para tentar a reprodução HTTPS direta.</pre>
+<p><a href="./">Voltar ao aplicativo</a></p>
+<script src="./config.js?v=1.9.1-caparao.5"></script><script src="./diagnostico.js?v=5"></script>
+</body></html>

@@ -4,7 +4,7 @@
   "short_name": "Caparaó Gospel",
   "description": "Web Rádio de Iúna (ES). Rádio Caparaó Gospel — Tocando o seu Coração.",
   "lang": "pt-BR",
-  "start_url": "./?v=1.9.1-caparao.3",
+  "start_url": "./?v=1.9.1-caparao.5",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

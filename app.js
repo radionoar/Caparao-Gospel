@@ -46,6 +46,8 @@
     currentProxy: false,
     currentGraph: false,
     currentHadAudio: false,
+    currentWorker: false,
+    forceWorker: false,
     context: null,
     analyser: null,
     frequencyData: null,
@@ -172,13 +174,28 @@
   const BUFFER_TIMEOUT = 28000;
   const STABLE_PLAYBACK = 20000;
   const RETRY_DELAYS = [2, 4, 7, 12, 20, 30, 45, 60];
-  const streamUrl = cfg.streamUrl; // /; conforme listen.pls
-  // Streaming HTTP direto só é permitido em páginas HTTP/localhost.
-  // Em HTTPS use preferencialmente o proxy de mesma origem (/api/stream)
-  // ou a URL HTTPS autenticada pela hospedagem da rádio.
-  const directStreamUrl = (location.protocol === 'https:' && cfg.secureStreamUrl)
-    ? cfg.secureStreamUrl : streamUrl;
+  const streamUrl = cfg.streamUrl; // Fonte HTTP original do listen.pls (/;).
+  const LOCAL_WORKER_KEY = 'caparao-gospel-worker-url';
+  function normalizeWorkerBase(input) {
+    if (typeof input !== 'string' || !input.trim()) return '';
+    try {
+      const url = new URL(input.trim());
+      if (url.protocol !== 'https:' || url.username || url.password) return '';
+      if (!['', '/'].includes(url.pathname) && !/^\/(?:health|stream|diagnostico)\/?$/.test(url.pathname)) return '';
+      return url.origin;
+    } catch (_) { return ''; }
+  }
+  let savedWorker = '';
+  try { savedWorker = localStorage.getItem(LOCAL_WORKER_KEY) || ''; } catch (_) {}
+  const workerBase = normalizeWorkerBase(cfg.proxyBaseUrl) || normalizeWorkerBase(savedWorker);
+  // O próprio xCAST aceita HTTPS conforme o teste realizado pelo responsável.
+  // Use primeiro o streaming HTTPS direto no GitHub Pages. O Worker fica
+  // reservado como fallback opcional para cabeçalhos/codificação incompatíveis.
+  const directStreamUrl = location.protocol === 'https:'
+    ? (cfg.secureStreamUrl || streamUrl) : streamUrl;
   const insecureStreamOnHttps = location.protocol === 'https:' && /^http:\/\//i.test(directStreamUrl);
+  const workerStreamUrl = workerBase ? `${workerBase}/stream` : '';
+  const usingHttpsWorker = location.protocol === 'https:' && !!workerStreamUrl;
   const whatsapp = `https://wa.me/${cfg.whatsappNumber}?text=`;
 
   // Ajuste não invasivo: tente dimensionar apenas a janela instalada no
@@ -439,16 +456,37 @@
 
   function maybeFallback(reason, hadPlayback) {
     if (!state.desired) return;
-    if (state.currentProxy && !state.proxyFailed && !insecureStreamOnHttps) {
+    if (state.currentProxy && !state.proxyFailed) {
       state.proxyFailed = true;
-      setConnectionInfo(`Servidor auxiliar indisponível. Tentando conexão direta com a rádio.`);
+      setConnectionInfo(usingHttpsWorker ? 'Proxy local indisponível. Tentando o Worker HTTPS da rádio.' : 'Proxy local indisponível. Verificando outra rota de áudio.');
       connectStream();
       return;
     }
     if (!state.currentProxy && state.currentGraph && !hadPlayback && !state.corsBlocked) {
       state.corsBlocked = true;
-      setConnectionInfo('O navegador limitou a análise detalhada. Tentando reprodução nativa da rádio.');
+      state.graphUnsupported = true;
+      setConnectionInfo('O navegador limitou a análise de áudio. Tentando a reprodução nativa.');
       connectStream();
+      return;
+    }
+    // Se a fonte HTTPS direta não puder ser decodificada, o Worker opcional
+    // pode normalizar cabeçalhos de audio/aacp ou application/octet-stream.
+    if (!state.currentProxy && !state.currentWorker && workerStreamUrl && !state.forceWorker && !hadPlayback) {
+      state.forceWorker = true;
+      setConnectionInfo('Reprodução direta não aceita. Tentando a ponte HTTPS para HE-AAC.');
+      connectStream();
+      return;
+    }
+    // Um erro de formato não é resolvido repetindo o mesmo download AAC.
+    // Informar a causa e permitir novo teste pelo botão, sem reconexão eterna.
+    if (/HE-AAC|formato incompatível/i.test(reason)) {
+      cancelTimers();
+      discardAudio();
+      state.playing = false;
+      state.buffering = false;
+      setStatus('blocked', 'O navegador rejeitou o formato HE-AAC ou os cabeçalhos do streaming. Abra diagnostico.html para testar. Se necessário, publique o proxy HTTPS opcional incluso no ZIP.');
+      setConnectionInfo(reason);
+      resetMeters('O navegador não conseguiu abrir o áudio HE-AAC.');
       return;
     }
     retryLater(reason);
@@ -457,8 +495,8 @@
   function connectStream() {
     if (!state.desired) return;
     if ((!state.proxy || state.proxyFailed) && insecureStreamOnHttps) {
-      setStatus('blocked', 'O streaming fornecido é HTTP. Esta hospedagem HTTPS não possui proxy ativo. O áudio não pode tocar até configurar uma origem HTTPS ou servidor proxy.');
-      setConnectionInfo('Hospede server.js por HTTPS ou configure secureStreamUrl no config.js.');
+      setStatus('blocked', 'Não existe URL segura para esta página HTTPS. Configure secureStreamUrl ou um proxy externo.');
+      setConnectionInfo('Página HTTPS não pode abrir streaming HTTP. A configuração segura está ausente.');
       resetMeters('Aguardando endereço de streaming seguro.');
       return;
     }
@@ -471,10 +509,16 @@
     state.progressEvents = 0;
     state.lastProgressAt = Date.now();
     state.currentProxy = state.proxy && !state.proxyFailed;
+    state.currentWorker = !state.currentProxy && state.forceWorker && !!workerStreamUrl;
+    const playUrl = state.currentProxy ? './api/stream' :
+      (state.currentWorker ? workerStreamUrl : directStreamUrl);
     // Sem gesto do usuário, Web Audio pode ficar suspenso e silenciar a
     // saída por completo. O áudio nativo tem prioridade no autoinício.
     // A análise de 24 bandas volta em reproduções iniciadas por gesto.
-    const canGraph = !state.graphUnsupported && state.userActivated && state.currentProxy;
+    // Sem CORS garantido no xCAST externo, criar MediaElementAudioSourceNode
+    // pode silenciar a transmissão. O áudio direto é prioritário; o equalizador
+    // de frequência real continua funcional nas fontes de mesma origem/Worker.
+    const canGraph = !state.graphUnsupported && state.userActivated && (state.currentProxy || state.currentWorker);
     state.currentGraph = canGraph;
     let audio = new Audio();
     state.audio = audio;
@@ -482,27 +526,27 @@
     audio.volume = 1;
     audio.loop = false;
     if (canGraph) audio.crossOrigin = 'anonymous';
-    audio.src = state.currentProxy ? './api/stream' : directStreamUrl;
+    audio.src = playUrl;
     if (canGraph && !setupMeterGraph(audio)) {
       state.graphUnsupported = true;
       discardAudio();
       audio = new Audio();
       audio.preload = 'none';
       audio.volume = 1;
-      audio.src = state.currentProxy ? './api/stream' : directStreamUrl;
+      audio.src = playUrl;
       state.audio = audio;
       state.currentGraph = false;
     }
 
     setStatus('connecting');
-    setConnectionInfo(`Conectando ${state.currentProxy ? 'pelo aplicativo' : 'diretamente à Rádio Caparaó Gospel'} com reconexão automática ativa.`);
+    setConnectionInfo(`Conectando ${state.currentProxy ? 'pelo servidor local' : state.currentWorker ? 'pelo proxy HTTPS AAC' : 'diretamente ao xCAST por HTTPS'} com reconexão automática ativa.`);
     resetMeters('Preparando a leitura do streaming…');
     const current = audio;
     const valid = () => state.desired && state.audio === current && state.token === token;
 
     state.startupTimer = setTimeout(() => {
       state.startupTimer = null;
-      if (valid() && !state.currentHadAudio) maybeFallback('A transmissão demorou para iniciar; verifique /api/diagnostico', false);
+      if (valid() && !state.currentHadAudio) maybeFallback('A transmissão demorou para iniciar', false);
     }, STARTUP_TIMEOUT);
 
     audio.onplaying = () => {
@@ -542,7 +586,15 @@
     audio.onwaiting = () => { if (valid()) buffering('O player está aguardando novos dados'); };
     audio.onstalled = () => { if (valid() && !state.playing) buffering('A conexão ficou temporariamente sem novos dados'); };
     audio.onended = () => { if (valid()) retryLater('A transmissão foi encerrada pela origem'); };
-    audio.onerror = () => { if (valid()) maybeFallback('Houve um erro de rede ou reprodução', state.currentHadAudio); };
+    audio.onerror = () => {
+      if (!valid()) return;
+      const code = current.error?.code || 0;
+      const reason = code === 4 ? 'HE-AAC: formato incompatível ou cabeçalhos de áudio rejeitados pelo navegador'
+        : code === 3 ? 'HE-AAC: navegador não conseguiu decodificar os quadros de áudio'
+        : code === 2 ? 'Erro de rede ao carregar o streaming'
+        : 'Erro ao reproduzir o streaming';
+      maybeFallback(reason, state.currentHadAudio);
+    };
     audio.onpause = () => {
       if (!valid() || state.buffering || current.ended) return;
       state.playing = false;
@@ -606,6 +658,7 @@
     state.userActivated = true;
     state.retries = 0;
     state.proxyFailed = false;
+    state.forceWorker = false;
     connectStream();
   }
 
@@ -721,8 +774,8 @@
     startMetadata();
     if (state.desired && !state.audio && !state.retryTimer) {
       if (!ready && insecureStreamOnHttps) {
-        setStatus('blocked', 'Não há streaming HTTPS disponível. Se estiver usando GitHub Pages, ele não executa server.js. É necessário obter um link HTTPS do xCAST ou hospedar o proxy.');
-        setConnectionInfo('Sem proxy HTTPS para o streaming HTTP. Veja DIAGNOSTICO-STREAMING.txt e teste o URL /api/diagnostico na hospedagem Node.');
+        setStatus('blocked', 'Nenhuma fonte HTTPS configurada no PWA. Acesse diagnostico.html para verificar.');
+        setConnectionInfo('O GitHub Pages não suporta streaming HTTP direto.');
         resetMeters('Áudio indisponível até configurar streaming HTTPS.');
       } else connectStream();
     }
@@ -751,7 +804,7 @@
   });
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=1.9.1-caparao.3').catch((error) => console.warn('Service Worker:', error)));
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=1.9.1-caparao.5').catch((error) => console.warn('Service Worker:', error)));
   }
 
   // Inicialização automática SOMENTE na PWA instalada. Na página pública
