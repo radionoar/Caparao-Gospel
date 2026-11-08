@@ -32,8 +32,8 @@ function secureHeaders(res) {
   res.setHeader('Cross-Origin-Opener-Policy','same-origin');
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
-    "connect-src 'self' http://stm17.xcast.com.br:8318; " +
-    "media-src 'self' http://stm17.xcast.com.br:8318; " +
+    "connect-src 'self' http://stm17.xcast.com.br:8318/; " +
+    "media-src 'self' http://stm17.xcast.com.br:8318/; " +
     "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
 }
 function json(res, code, obj) {
