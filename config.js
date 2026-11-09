@@ -2,7 +2,7 @@
 window.RADIO_CONFIG = Object.freeze({
   name: 'Rádio Caparaó Gospel',
   slogan: 'Tocando o seu Coração',
-  frequency: 'Web Rádio',
+  frequency: 'Caparaó FM',
   location: 'Iúna · ES',
   // URL HTTPS testada pelo proprietário no navegador; a barra e ponto-e-vírgula são necessários.
   streamUrl: 'https://stm17.xcast.com.br:8318/;',

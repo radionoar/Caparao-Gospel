@@ -1,5 +1,5 @@
 /* Caparaó Gospel — Base original 1.9.1: cache apenas da interface; streaming e metadados nunca entram em cache. */
-const CACHE = 'caparao-gospel-meta-texto-v3';
+const CACHE = 'caparao-gospel-fm-v7';
 const FILES = [
   './', './index.html', './styles.css', './gate.js', './landing.js', './app.js', './metadata.js', './config.js', './manifest.webmanifest',
   './assets/caparao-gospel-original.png', './assets/whatsapp.svg', './assets/neon-waves-v2.svg',
